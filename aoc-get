@@ -1,0 +1,135 @@
+#!env zsh
+
+get_data() (
+  local year=$1
+  local day=$2
+
+  if [[ -z ${year} ]]; then
+    get_all_data
+  elif [[ -z ${day} ]]; then
+    get_year_data ${year}
+  else
+    get_day_data ${year} ${day}
+  fi
+)
+
+get_all_data() (
+  for year in {2015..2021}; do
+    get_year_data ${year}
+  done
+)
+
+get_year_data() (
+  local year=$1
+
+  for day in {1..25}; do
+    get_day_data ${year} ${day}
+  done
+)
+
+get_day_data() (
+  local year=$1
+  local day=$2
+  local curl_response=""
+  local filename="data/${year}/${day}.txt"
+  local url="https://adventofcode.com/${year}/day/${day}/input"
+
+  if [[ ! -f $filename || $FORCE ]]; then
+    verbose "getting data for year ${year} day ${day}"
+
+    if [[ -n "$DRY_RUN" ]]; then
+      echo "curl --request GET --cookie \"session=***\" --create-dirs --output $filename --show-error --silent --write-out \"%{http_code}\" --url \"${url}\""
+    else
+      curl_response=$(
+        curl --request GET \
+             --cookie "session=${SESSION_TOKEN}" \
+             --create-dirs \
+             --output $filename \
+             --show-error \
+             --silent \
+             --write-out "%{http_code}" \
+             --url "${url}"
+      )
+      case ${curl_response} in
+        "200" )
+          exit 0
+          ;;
+
+        "400" )
+          echo "session-token is not valid -- log in again to refresh it"
+          rm $filename
+          exit 1
+          ;;
+
+        "404" )
+          echo "data not found at ${url}"
+          rm $filename
+          exit 1
+          ;;
+
+        * )
+          echo "curl received ${curl_response}"
+          rm $filename
+          exit 1
+          ;;
+      esac
+    fi
+  else
+    echo "data for year ${year} day ${day} has already been downloaded to ${filename}"
+  fi
+)
+
+usage() (
+  echo "Usage: aoc-get [-f] [-n] [-v] [year [day]]"
+  echo "       aoc-get -h"
+  echo ""
+  echo "If day is omitted, will get data for all days for the year."
+  echo "If year is omitted, will get data for all years since and including 2015."
+  echo ""
+  echo "Options:"
+  echo "  -f   force download of data even if the file exists locally"
+  echo "  -h   show this help"
+  echo "  -n   show what will be executed, but don't actually execute it"
+  echo "  -v   increase verbosity of output"
+  exit 1
+)
+
+verbose() (
+  [[ -n ${VERBOSE} ]] && echo $1
+)
+
+while getopts ":fhnv" opt; do
+  case ${opt} in
+    f ) # force
+      FORCE=true
+      ;;
+
+    h ) # help
+      usage
+      ;;
+
+    n ) # dry run
+      DRY_RUN=true
+      ;;
+
+    v ) # verbose
+      VERBOSE=true
+      ;;
+
+    \? )
+      echo "invalid option -${OPTARG}" 1>&2
+      usage
+      ;;
+
+    : )
+      echo "option ${OPTARG} requires an argument" 1>&2
+      usage
+      ;;
+  esac
+done
+shift $((OPTIND -1))
+
+YEAR=$1
+DAY=$2
+
+get_data $YEAR $DAY
