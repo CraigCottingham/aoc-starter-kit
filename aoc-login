@@ -1,0 +1,7 @@
+#!env zsh
+
+# interactive login
+#   GitHub:  https://adventofcode.com/auth/github
+#   Google:  https://adventofcode.com/auth/google
+#   Twitter: https://adventofcode.com/auth/twitter
+#   Reddit:  https://adventofcode.com/auth/reddit
